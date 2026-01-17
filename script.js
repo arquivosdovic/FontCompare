@@ -126,11 +126,40 @@ mainInput.oninput = () => {
 document.getElementById('addGoogleFont').onclick = () => {
     const name = document.getElementById('googleFontSearch').value.trim();
     if (!name) return;
+
+    // Lista ampliada de fontes que a maioria dos PCs/Macs já possui
+    const systemFonts = [
+        'Arial', 'Arial Black', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS', 
+        'Times New Roman', 'Georgia', 'Garamond', 'Courier New', 'Brush Script MT',
+        'Impact', 'Comic Sans MS'
+    ];
+
+    // Se a fonte digitada estiver na lista acima, cria o cartão direto
+    // (compara ignorando maiúsculas/minúsculas para ser mais amigável)
+    const isSystemFont = systemFonts.some(f => f.toLowerCase() === name.toLowerCase());
+
+    if (isSystemFont) {
+        createCard(name, name);
+        document.getElementById('googleFontSearch').value = "";
+        return;
+    }
+
+    // Se não for de sistema, tenta procurar no Google Fonts
     const urlName = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('+');
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = `https://fonts.googleapis.com/css2?family=${urlName}&display=swap`;
-    link.onload = () => createCard(name, name);
+    
+    link.onload = () => {
+        createCard(name, name);
+        document.getElementById('googleFontSearch').value = "";
+    };
+
+    link.onerror = () => {
+        alert(`Ops! A fonte "${name}" não foi encontrada no Google Fonts e não parece ser uma fonte de sistema padrão.`);
+        link.remove();
+    };
+
     document.head.appendChild(link);
 };
 
