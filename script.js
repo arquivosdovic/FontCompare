@@ -127,15 +127,12 @@ document.getElementById('addGoogleFont').onclick = () => {
     const name = document.getElementById('googleFontSearch').value.trim();
     if (!name) return;
 
-    // Lista ampliada de fontes que a maioria dos PCs/Macs já possui
     const systemFonts = [
         'Arial', 'Arial Black', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS', 
         'Times New Roman', 'Georgia', 'Garamond', 'Courier New', 'Brush Script MT',
         'Impact', 'Comic Sans MS'
     ];
 
-    // Se a fonte digitada estiver na lista acima, cria o cartão direto
-    // (compara ignorando maiúsculas/minúsculas para ser mais amigável)
     const isSystemFont = systemFonts.some(f => f.toLowerCase() === name.toLowerCase());
 
     if (isSystemFont) {
@@ -144,25 +141,29 @@ document.getElementById('addGoogleFont').onclick = () => {
         return;
     }
 
-    // Se não for de sistema, tenta procurar no Google Fonts
-    const urlName = name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('+');
+    // --- CORREÇÃO AQUI ---
+    // 1. Criamos o nome para a URL (ex: EB+Garamond)
+    // Substituímos apenas espaços por + e mantemos a caixa original digitada pelo usuário
+    const urlName = name.replace(/\s+/g, '+');
+    
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${urlName}&display=swap`;
+    // 2. Usamos a sintaxe de pesos para garantir que a API localize a fonte corretamente
+    link.href = `https://fonts.googleapis.com/css2?family=${urlName}:wght@400;700&display=swap`;
     
     link.onload = () => {
-        createCard(name, name);
+        // 3. Na hora de aplicar o CSS, o nome da família deve ser o nome real (com espaços)
+        createCard(name, name); 
         document.getElementById('googleFontSearch').value = "";
     };
 
     link.onerror = () => {
-        alert(`Ops! A fonte "${name}" não foi encontrada no Google Fonts e não parece ser uma fonte de sistema padrão.`);
+        alert(`Ops! A fonte "${name}" não foi encontrada. Verifique se o nome está correto (ex: EB Garamond).`);
         link.remove();
     };
 
     document.head.appendChild(link);
 };
-
 fontUpload.onchange = async (e) => {
     for (const file of e.target.files) {
         const name = file.name.split('.')[0].replace(/\s+/g, '-');
@@ -173,5 +174,6 @@ fontUpload.onchange = async (e) => {
     }
     fontUpload.value = "";
 };
+
 
 window.onload = () => createCard("Roboto", "Roboto");
