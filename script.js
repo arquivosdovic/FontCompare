@@ -21,20 +21,14 @@ document.getElementById('clearAll').onclick = () => {
 
 // --- FUNÇÃO PARA SALVAR CARTÃO COMO IMAGEM ---
 async function saveCardAsImage(cardElement, fontLabel) {
-    // Esconde os botões de ação para não aparecerem na imagem
     const actions = cardElement.querySelector('.card-actions');
-    const removeBtn = cardElement.querySelector('.remove-btn');
-    const saveBtn = cardElement.querySelector('.save-btn');
-
-    if (actions) actions.style.opacity = '0'; // Esconde o container de ações
-    if (removeBtn) removeBtn.style.display = 'none';
-    if (saveBtn) saveBtn.style.display = 'none';
+    if (actions) actions.style.opacity = '0'; 
 
     try {
         const canvas = await html2canvas(cardElement, {
-            scale: 2, // Renderiza em 2x para melhor qualidade
-            useCORS: true, // Importante para fontes do Google
-            backgroundColor: null // Garante transparência se o card não tiver BG
+            scale: 2,
+            useCORS: true,
+            backgroundColor: null
         });
         const image = canvas.toDataURL('image/png');
         const link = document.createElement('a');
@@ -44,16 +38,12 @@ async function saveCardAsImage(cardElement, fontLabel) {
         link.click();
         document.body.removeChild(link);
     } catch (error) {
-        console.error("Erro ao salvar o cartão como imagem:", error);
-        alert("Não foi possível salvar a imagem. Verifique o console para detalhes.");
+        console.error("Erro ao salvar imagem:", error);
+        alert("Erro ao salvar imagem. Verifique o console.");
     } finally {
-        // Restaura a visibilidade dos botões
         if (actions) actions.style.opacity = '1'; 
-        if (removeBtn) removeBtn.style.display = 'inline-block';
-        if (saveBtn) saveBtn.style.display = 'inline-block';
     }
 }
-
 
 // --- ATUALIZAÇÃO DE ESTILOS ---
 function updateStyles() {
@@ -74,7 +64,7 @@ function updateStyles() {
     sizeVal.textContent = fontSize.value;
 }
 
-// Cores e Tamanho
+// Eventos de Input
 document.getElementById('fgColor').oninput = (e) => { fgHex.value = e.target.value.toUpperCase(); updateStyles(); };
 fgHex.oninput = updateStyles;
 document.getElementById('bgColor').oninput = (e) => { bgHex.value = e.target.value.toUpperCase(); updateStyles(); };
@@ -102,7 +92,6 @@ function createCard(label, family) {
     card.className = 'card';
     card.style.fontFamily = `"${family}", sans-serif`;
     
-    // Adiciona os botões de ação e o texto
     card.innerHTML = `
         <span class="font-name">${label}</span>
         <div class="preview-text">${mainInput.value}</div>
@@ -113,67 +102,82 @@ function createCard(label, family) {
     `;
     
     card.querySelector('.remove-btn').onclick = () => card.remove();
-    card.querySelector('.save-btn').onclick = () => saveCardAsImage(card, label); // Evento para salvar
+    card.querySelector('.save-btn').onclick = () => saveCardAsImage(card, label);
 
     cardContainer.appendChild(card);
-    updateStyles(); // Aplica cores e estilos iniciais
+    updateStyles();
 }
 
 mainInput.oninput = () => {
     document.querySelectorAll('.preview-text').forEach(p => p.textContent = mainInput.value);
 };
 
+// --- LOGICA DE ADIÇÃO DE FONTE (MELHORADA) ---
 document.getElementById('addGoogleFont').onclick = () => {
-    const name = document.getElementById('googleFontSearch').value.trim();
-    if (!name) return;
+    const rawInput = document.getElementById('googleFontSearch').value.trim();
+    if (!rawInput) return;
 
-    const systemFonts = [
-        'Arial', 'Arial Black', 'Verdana', 'Helvetica', 'Tahoma', 'Trebuchet MS', 
-        'Times New Roman', 'Georgia', 'Garamond', 'Courier New', 'Brush Script MT',
-        'Impact', 'Comic Sans MS'
-    ];
+    // Normalização Inteligente: "eb garamond" -> "EB Garamond" | "roboto" -> "Roboto"
+    const formattedName = rawInput.split(' ').map(w => {
+        if (w.length <= 2) return w.toUpperCase(); // Trata EB, PT, ST
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
 
-    const isSystemFont = systemFonts.some(f => f.toLowerCase() === name.toLowerCase());
+    const systemFonts = ['Arial', 'Verdana', 'Helvetica', 'Times New Roman', 'Georgia', 'Courier New', 'Impact', 'Comic Sans MS'];
+    const isSystemFont = systemFonts.some(f => f.toLowerCase() === rawInput.toLowerCase());
 
     if (isSystemFont) {
-        createCard(name, name);
+        createCard(formattedName, formattedName);
         document.getElementById('googleFontSearch').value = "";
         return;
     }
 
-    // --- CORREÇÃO AQUI ---
-    // 1. Criamos o nome para a URL (ex: EB+Garamond)
-    // Substituímos apenas espaços por + e mantemos a caixa original digitada pelo usuário
-    const urlName = name.replace(/\s+/g, '+');
-    
+    // Tenta carregar a fonte
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    // 2. Usamos a sintaxe de pesos para garantir que a API localize a fonte corretamente
+    const urlName = formattedName.replace(/\s+/g, '+');
     link.href = `https://fonts.googleapis.com/css2?family=${urlName}:wght@400;700&display=swap`;
     
     link.onload = () => {
-        // 3. Na hora de aplicar o CSS, o nome da família deve ser o nome real (com espaços)
-        createCard(name, name); 
+        createCard(formattedName, formattedName);
         document.getElementById('googleFontSearch').value = "";
     };
 
     link.onerror = () => {
-        alert(`Ops! A fonte "${name}" não foi encontrada. Verifique se o nome está correto (ex: EB Garamond).`);
+        // Fallback: Tenta com o texto exatamente como o usuário digitou
+        const fallbackLink = document.createElement('link');
+        fallbackLink.rel = 'stylesheet';
+        fallbackLink.href = `https://fonts.googleapis.com/css2?family=${rawInput.replace(/\s+/g, '+')}&display=swap`;
+
+        fallbackLink.onload = () => {
+            createCard(rawInput, rawInput);
+            document.getElementById('googleFontSearch').value = "";
+        };
+
+        fallbackLink.onerror = () => {
+            alert(`Não encontramos a fonte "${rawInput}". Verifique se o nome está correto.`);
+            fallbackLink.remove();
+        };
+        document.head.appendChild(fallbackLink);
         link.remove();
     };
 
     document.head.appendChild(link);
 };
+
 fontUpload.onchange = async (e) => {
     for (const file of e.target.files) {
         const name = file.name.split('.')[0].replace(/\s+/g, '-');
         const font = new FontFace(name, await file.arrayBuffer());
-        await font.load();
-        document.fonts.add(font);
-        createCard(file.name, name);
+        try {
+            await font.load();
+            document.fonts.add(font);
+            createCard(file.name, name);
+        } catch (err) {
+            console.error("Erro ao carregar fonte local:", err);
+        }
     }
     fontUpload.value = "";
 };
-
 
 window.onload = () => createCard("Roboto", "Roboto");
